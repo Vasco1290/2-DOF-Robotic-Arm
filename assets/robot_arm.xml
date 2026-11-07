@@ -1,11 +1,9 @@
 <mujoco model="arm_2dof_rotary_linear">
 
-  <!-- ===================== COMPILER / OPTIONS ===================== -->
-  <compiler angle="degree" autolimits="true"/>
+  <compiler angle="radian" autolimits="true"/>
   <option timestep="0.002" integrator="implicitfast" gravity="0 0 -9.81"/>
 
-  <!-- ===================== VISUAL / STATISTIC ===================== -->
-  <statistic center="0.25 0 0.12" extent="0.9"/>
+  <statistic center="0.25 0 0.15" extent="0.9"/>
   <visual>
     <headlight ambient="0.35 0.35 0.38" diffuse="0.55 0.55 0.58" specular="0.2 0.2 0.2"/>
     <global azimuth="130" elevation="-22" offwidth="1920" offheight="1080"/>
@@ -14,7 +12,6 @@
     <rgba haze="0.85 0.9 1 1"/>
   </visual>
 
-  <!-- ===================== ASSETS ===================== -->
   <asset>
     <texture type="skybox" builtin="gradient" rgb1="0.72 0.82 0.98" rgb2="0.96 0.98 1.0"
              width="512" height="3072"/>
@@ -22,7 +19,6 @@
              width="300" height="300" mark="edge" markrgb="0.68 0.76 0.90"/>
     <material name="floor" texture="grid" texuniform="true" texrepeat="6 6" reflectance="0.18"/>
 
-    <!-- brushed aluminium / steel / dark polymer -->
     <material name="alu"       rgba="0.78 0.80 0.84 1" specular="0.85" shininess="0.75" reflectance="0.10"/>
     <material name="alu_light" rgba="0.86 0.88 0.92 1" specular="0.90" shininess="0.80" reflectance="0.12"/>
     <material name="steel"     rgba="0.62 0.64 0.68 1" specular="0.95" shininess="0.90" reflectance="0.15"/>
@@ -30,7 +26,6 @@
     <material name="blackhole" rgba="0.05 0.05 0.06 1" specular="0.10" shininess="0.10"/>
   </asset>
 
-  <!-- ===================== DEFAULTS ===================== -->
   <default>
     <geom contype="0" conaffinity="0" material="alu" density="700"/>
     <default class="dark">
@@ -41,7 +36,6 @@
     </default>
   </default>
 
-  <!-- ===================== WORLD ===================== -->
   <worldbody>
     <light name="sun"  pos="1.0 -1.0 2.5" dir="-0.35 0.35 -1" directional="true"
            diffuse="0.75 0.75 0.75" specular="0.4 0.4 0.4" castshadow="true"/>
@@ -50,75 +44,63 @@
 
     <geom name="floor" type="plane" size="3 3 0.05" material="floor" contype="1" conaffinity="1"/>
 
-    <!-- ===================== BASE (static) ===================== -->
-    <!-- Rb = 0.15 m, column top at h1 = 0.15 m -->
     <body name="base" pos="0 0 0">
-      <!-- flange plate, Rb = 0.15 -->
-      <geom name="base_plate"  type="cylinder" pos="0 0 0.011" size="0.150 0.011" material="alu"/>
-      <geom name="base_edge"   type="cylinder" pos="0 0 0.022" size="0.146 0.001" material="steel"/>
-      <!-- stepped raised ring -->
-      <geom name="base_ring"   type="cylinder" pos="0 0 0.029" size="0.105 0.006" material="alu_light"/>
-      <geom name="base_ring2"  type="cylinder" pos="0 0 0.038" size="0.082 0.003" material="steel"/>
-      <!-- column -->
-      <geom name="column"      type="cylinder" pos="0 0 0.0955" size="0.065 0.0545" material="alu_light"/>
-      <!-- bearing seam (dark) at top of column, z = 0.15 -->
-      <geom name="seam"        type="cylinder" pos="0 0 0.1525" size="0.067 0.0025" class="dark"/>
+      <geom name="base_plate" type="cylinder" pos="0 0 0.011" size="0.150 0.011" material="alu"/>
+      <geom name="base_edge"  type="cylinder" pos="0 0 0.022" size="0.146 0.001" material="steel"/>
+      <geom name="base_ring"  type="cylinder" pos="0 0 0.029" size="0.105 0.006" material="alu_light"/>
+      <geom name="base_ring2" type="cylinder" pos="0 0 0.038" size="0.082 0.003" material="steel"/>
 
-      <!-- 4 flange bolt holes -->
+      <!-- column: z = 0.041 to 0.205 -->
+      <geom name="column"     type="cylinder" pos="0 0 0.123"  size="0.065 0.082" material="alu_light"/>
+      <!-- bearing seam: z = 0.205 to 0.210, directly under the head -->
+      <geom name="seam"       type="cylinder" pos="0 0 0.2075" size="0.067 0.0025" class="dark"/>
+
       <geom class="bolt" pos=" 0.088  0.088 0.0225"/>
       <geom class="bolt" pos="-0.088  0.088 0.0225"/>
       <geom class="bolt" pos=" 0.088 -0.088 0.0225"/>
       <geom class="bolt" pos="-0.088 -0.088 0.0225"/>
 
-      <!-- ===================== LINK 1: ROTATING TURRET + RAIL ===================== -->
-      <body name="turret" pos="0 0 0.15">
-        <joint name="theta1" type="hinge" axis="0 0 1" range="0 360" limited="true"
-               damping="6" armature="0.02"/>
+      <!-- turret raised to z = 0.24 so that tool tip z = 0.24 - 0.005 - 0.085 = 0.15 -->
+      <body name="turret" pos="0 0 0.24">
+        <joint name="theta1" type="hinge" axis="0 0 1" range="0 6.283185"
+               damping="15" armature="0.02"/>
 
-        <!-- turret head -->
-        <geom name="head"      type="cylinder" pos="0 0 0"      size="0.090 0.030" material="alu_light"/>
-        <geom name="head_cap"  type="cylinder" pos="0 0 0.0305" size="0.072 0.0006" material="steel"/>
-        <geom name="head_dot"  type="cylinder" pos="0.0 0 0.0313" size="0.004 0.0003" class="dark"/>
+        <geom name="head"     type="cylinder" pos="0 0 0"      size="0.090 0.030" material="alu_light"/>
+        <geom name="head_cap" type="cylinder" pos="0 0 0.0305" size="0.072 0.0006" material="steel"/>
+        <geom name="head_dot" type="cylinder" pos="0 0 0.0313" size="0.004 0.0003" class="dark"/>
 
-        <!-- dark clamp / sleeve at the rail root -->
-        <geom name="sleeve"    type="box" pos="0.1025 0 -0.005" size="0.0175 0.048 0.038" class="dark"/>
+        <geom name="sleeve"   type="box" pos="0.1025 0 -0.005" size="0.0175 0.048 0.038" class="dark"/>
 
-        <!-- square rail (static on the turret) -->
-        <geom name="rail"      type="box" pos="0.340 0 -0.005" size="0.280 0.040 0.028" material="alu"/>
-        <geom name="rail_top"  type="box" pos="0.340 0 0.0232"  size="0.280 0.030 0.0005" material="alu_light"/>
-        <geom name="rail_end"  type="box" pos="0.625 0 -0.005"  size="0.005 0.042 0.030" class="dark"/>
+        <geom name="rail"     type="box" pos="0.340 0 -0.005" size="0.280 0.040 0.028" material="alu"/>
+        <geom name="rail_top" type="box" pos="0.340 0 0.0232" size="0.280 0.030 0.0005" material="alu_light"/>
+        <geom name="rail_end" type="box" pos="0.625 0 -0.005" size="0.005 0.042 0.030" class="dark"/>
 
-        <!-- ===================== LINK 2: LINEAR CARRIAGE ===================== -->
-        <body name="carriage" pos="0.0475 0 -0.085">
-          <joint name="d2" type="slide" axis="1 0 0" range="0 0.40" limited="true"
-                 damping="40" armature="0.5"/>
+        <body name="carriage" pos="0.150 0 -0.005">
+          <joint name="d2" type="slide" axis="1 0 0" range="0 0.40"
+                 damping="80" armature="0.5"/>
 
-          <!-- dark clamp block wrapped around the rail -->
           <geom name="carriage_block" type="box" pos="0 0 0" size="0.025 0.048 0.038" class="dark"/>
 
-          <!-- light end block -->
-          <geom name="end_block"  type="box" pos="0.0475 0 0"      size="0.0225 0.048 0.043" material="alu_light"/>
-          <geom name="end_cap"    type="box" pos="0.0475 0 0.0475" size="0.016 0.022 0.005" material="steel"/>
-          <geom name="end_conn"   type="box" pos="0.0725 0 0.012"  size="0.004 0.020 0.016" class="dark"/>
+          <geom name="end_block" type="box" pos="0.0475 0 0"      size="0.0225 0.048 0.043" material="alu_light"/>
+          <geom name="end_cap"   type="box" pos="0.0475 0 0.0475" size="0.016 0.022 0.005" material="steel"/>
+          <geom name="end_conn"  type="box" pos="0.0725 0 0.012"  size="0.004 0.020 0.016" class="dark"/>
 
-          <!-- tool: flange + nozzle pointing down -->
-          <geom name="tool_flange" type="cylinder" pos="0.0475 0 -0.047" size="0.018 0.004" material="steel"/>
-          <geom name="tool_nozzle" type="cylinder" pos="0.0475 0 -0.066" size="0.011 0.015" material="alu_light"/>
+          <geom name="tool_flange" type="cylinder" pos="0.0475 0 -0.047"  size="0.018 0.004"  material="steel"/>
+          <geom name="tool_nozzle" type="cylinder" pos="0.0475 0 -0.066"  size="0.011 0.015"  material="alu_light"/>
           <geom name="tool_tip"    type="cylinder" pos="0.0475 0 -0.0825" size="0.007 0.0025" material="steel"/>
 
+          <!-- TCP: local (0.0475, 0, -0.085) -> world (0.1975 + d2, 0, 0.15) at theta1 = 0 -->
           <site name="tool_site" pos="0.0475 0 -0.085" size="0.005" rgba="0.1 0.4 1 1"/>
         </body>
       </body>
     </body>
   </worldbody>
 
-  <!-- ===================== ACTUATORS ===================== -->
   <actuator>
-    <position name="theta1_act" joint="theta1" kp="80"  ctrlrange="0 6.2832" forcerange="-30 30"/>
-    <position name="d2_act"     joint="d2"     kp="1500" ctrlrange="0 0.40"  forcerange="-200 200"/>
+    <position name="theta1_act" joint="theta1" kp="80"   ctrlrange="0 6.283185" forcerange="-30 30"/>
+    <position name="d2_act"     joint="d2"     kp="1500" ctrlrange="0 0.40"     forcerange="-200 200"/>
   </actuator>
 
-  <!-- ===================== SENSORS ===================== -->
   <sensor>
     <jointpos name="theta1_pos" joint="theta1"/>
     <jointpos name="d2_pos"     joint="d2"/>
@@ -127,10 +109,9 @@
     <framepos name="tool_xyz"   objtype="site" objname="tool_site"/>
   </sensor>
 
-  <!-- ===================== KEYFRAMES ===================== -->
   <keyframe>
-    <key name="home"     qpos="0 0"      ctrl="0 0"/>
-    <key name="extended" qpos="0 0.4"    ctrl="0 0.4"/>
-    <key name="quarter"  qpos="1.5708 0.2" ctrl="1.5708 0.2"/>
+    <key name="home"     qpos="0 0"         ctrl="0 0"/>
+    <key name="extended" qpos="0 0.4"       ctrl="0 0.4"/>
+    <key name="quarter"  qpos="1.5707963 0.2" ctrl="1.5707963 0.2"/>
   </keyframe>
 </mujoco>
