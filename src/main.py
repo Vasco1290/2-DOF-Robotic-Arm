@@ -1,10 +1,9 @@
 import time
-import numpy as np
-import mujoco
-import mujoco.viewer
-
 from pathlib import Path
 
+import mujoco
+import mujoco.viewer
+import numpy as np
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 MODEL_PATH = PROJECT_DIR / "assets" / "robot_arm.xml"
