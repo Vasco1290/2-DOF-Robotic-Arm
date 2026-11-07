@@ -1,123 +1,136 @@
-<mujoco model="2DOF_RP_Robot">
+<mujoco model="arm_2dof_rotary_linear">
 
-    <compiler angle="radian" autolimits="true"/>
+  <!-- ===================== COMPILER / OPTIONS ===================== -->
+  <compiler angle="degree" autolimits="true"/>
+  <option timestep="0.002" integrator="implicitfast" gravity="0 0 -9.81"/>
 
-    <option timestep="0.002" gravity="0 0 -9.81"/>
+  <!-- ===================== VISUAL / STATISTIC ===================== -->
+  <statistic center="0.25 0 0.12" extent="0.9"/>
+  <visual>
+    <headlight ambient="0.35 0.35 0.38" diffuse="0.55 0.55 0.58" specular="0.2 0.2 0.2"/>
+    <global azimuth="130" elevation="-22" offwidth="1920" offheight="1080"/>
+    <quality shadowsize="8192" offsamples="8"/>
+    <map znear="0.005" shadowclip="1.5"/>
+    <rgba haze="0.85 0.9 1 1"/>
+  </visual>
 
-    <worldbody>
+  <!-- ===================== ASSETS ===================== -->
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.72 0.82 0.98" rgb2="0.96 0.98 1.0"
+             width="512" height="3072"/>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.86 0.91 0.98" rgb2="0.80 0.86 0.95"
+             width="300" height="300" mark="edge" markrgb="0.68 0.76 0.90"/>
+    <material name="floor" texture="grid" texuniform="true" texrepeat="6 6" reflectance="0.18"/>
 
-        <!-- Ground -->
-        <geom name="ground"
-              type="plane"
-              size="2 2 0.1"
-              rgba="0.75 0.75 0.75 1"/>
+    <!-- brushed aluminium / steel / dark polymer -->
+    <material name="alu"       rgba="0.78 0.80 0.84 1" specular="0.85" shininess="0.75" reflectance="0.10"/>
+    <material name="alu_light" rgba="0.86 0.88 0.92 1" specular="0.90" shininess="0.80" reflectance="0.12"/>
+    <material name="steel"     rgba="0.62 0.64 0.68 1" specular="0.95" shininess="0.90" reflectance="0.15"/>
+    <material name="dark"      rgba="0.16 0.17 0.20 1" specular="0.30" shininess="0.30"/>
+    <material name="blackhole" rgba="0.05 0.05 0.06 1" specular="0.10" shininess="0.10"/>
+  </asset>
 
-        <!-- Lighting -->
-        <light name="main_light"
-               pos="0 -1 2"
-               dir="0 0 -1"
-               diffuse="0.8 0.8 0.8"/>
+  <!-- ===================== DEFAULTS ===================== -->
+  <default>
+    <geom contype="0" conaffinity="0" material="alu" density="700"/>
+    <default class="dark">
+      <geom material="dark"/>
+    </default>
+    <default class="bolt">
+      <geom type="cylinder" size="0.008 0.002" material="blackhole"/>
+    </default>
+  </default>
 
-        <!-- Fixed Base Flange -->
-        <body name="base">
+  <!-- ===================== WORLD ===================== -->
+  <worldbody>
+    <light name="sun"  pos="1.0 -1.0 2.5" dir="-0.35 0.35 -1" directional="true"
+           diffuse="0.75 0.75 0.75" specular="0.4 0.4 0.4" castshadow="true"/>
+    <light name="fill" pos="-1.5 1.5 1.5" dir="0.6 -0.6 -0.6" directional="true"
+           diffuse="0.25 0.27 0.32" specular="0.1 0.1 0.1" castshadow="false"/>
 
-            <geom name="base_flange"
-                  type="cylinder"
-                  pos="0 0 0.015"
-                  size="0.15 0.015"
-                  rgba="0.65 0.67 0.70 1"
-                  contype="0"
-                  conaffinity="0"/>
+    <geom name="floor" type="plane" size="3 3 0.05" material="floor" contype="1" conaffinity="1"/>
 
-            <!-- Vertical Column -->
-            <body name="column" pos="0 0 0.03">
+    <!-- ===================== BASE (static) ===================== -->
+    <!-- Rb = 0.15 m, column top at h1 = 0.15 m -->
+    <body name="base" pos="0 0 0">
+      <!-- flange plate, Rb = 0.15 -->
+      <geom name="base_plate"  type="cylinder" pos="0 0 0.011" size="0.150 0.011" material="alu"/>
+      <geom name="base_edge"   type="cylinder" pos="0 0 0.022" size="0.146 0.001" material="steel"/>
+      <!-- stepped raised ring -->
+      <geom name="base_ring"   type="cylinder" pos="0 0 0.029" size="0.105 0.006" material="alu_light"/>
+      <geom name="base_ring2"  type="cylinder" pos="0 0 0.038" size="0.082 0.003" material="steel"/>
+      <!-- column -->
+      <geom name="column"      type="cylinder" pos="0 0 0.0955" size="0.065 0.0545" material="alu_light"/>
+      <!-- bearing seam (dark) at top of column, z = 0.15 -->
+      <geom name="seam"        type="cylinder" pos="0 0 0.1525" size="0.067 0.0025" class="dark"/>
 
-                <geom name="vertical_column"
-                      type="cylinder"
-                      pos="0 0 0.06"
-                      size="0.055 0.06"
-                      rgba="0.65 0.67 0.70 1"
-                      contype="0"
-                      conaffinity="0"/>
+      <!-- 4 flange bolt holes -->
+      <geom class="bolt" pos=" 0.088  0.088 0.0225"/>
+      <geom class="bolt" pos="-0.088  0.088 0.0225"/>
+      <geom class="bolt" pos=" 0.088 -0.088 0.0225"/>
+      <geom class="bolt" pos="-0.088 -0.088 0.0225"/>
 
-                <!-- Revolute Assembly -->
-                <body name="rotating_arm" pos="0 0 0.12">
+      <!-- ===================== LINK 1: ROTATING TURRET + RAIL ===================== -->
+      <body name="turret" pos="0 0 0.15">
+        <joint name="theta1" type="hinge" axis="0 0 1" range="0 360" limited="true"
+               damping="6" armature="0.02"/>
 
-                    <joint name="joint1"
-                           type="hinge"
-                           axis="0 0 1"
-                           range="0 6.283185307"
-                           limited="true"
-                           damping="2.0"/>
+        <!-- turret head -->
+        <geom name="head"      type="cylinder" pos="0 0 0"      size="0.090 0.030" material="alu_light"/>
+        <geom name="head_cap"  type="cylinder" pos="0 0 0.0305" size="0.072 0.0006" material="steel"/>
+        <geom name="head_dot"  type="cylinder" pos="0.0 0 0.0313" size="0.004 0.0003" class="dark"/>
 
-                    <!-- Rotating Shoulder -->
-                    <geom name="shoulder"
-                          type="cylinder"
-                          pos="0 0 0"
-                          size="0.075 0.045"
-                          rgba="0.25 0.35 0.55 1"
-                          contype="0"
-                          conaffinity="0"/>
+        <!-- dark clamp / sleeve at the rail root -->
+        <geom name="sleeve"    type="box" pos="0.1025 0 -0.005" size="0.0175 0.048 0.038" class="dark"/>
 
-                    <!-- Fixed Outer Arm Housing -->
-                    <geom name="outer_housing"
-                          type="box"
-                          pos="0.15 0 0"
-                          size="0.15 0.04 0.035"
-                          rgba="0.70 0.72 0.75 1"
-                          contype="0"
-                          conaffinity="0"/>
+        <!-- square rail (static on the turret) -->
+        <geom name="rail"      type="box" pos="0.340 0 -0.005" size="0.280 0.040 0.028" material="alu"/>
+        <geom name="rail_top"  type="box" pos="0.340 0 0.0232"  size="0.280 0.030 0.0005" material="alu_light"/>
+        <geom name="rail_end"  type="box" pos="0.625 0 -0.005"  size="0.005 0.042 0.030" class="dark"/>
 
-                    <!-- Prismatic Assembly -->
-                    <body name="sliding_arm">
+        <!-- ===================== LINK 2: LINEAR CARRIAGE ===================== -->
+        <body name="carriage" pos="0.0475 0 -0.085">
+          <joint name="d2" type="slide" axis="1 0 0" range="0 0.40" limited="true"
+                 damping="40" armature="0.5"/>
 
-                        <joint name="joint2"
-                               type="slide"
-                               axis="1 0 0"
-                               range="0 0.40"
-                               limited="true"
-                               damping="10.0"/>
+          <!-- dark clamp block wrapped around the rail -->
+          <geom name="carriage_block" type="box" pos="0 0 0" size="0.025 0.048 0.038" class="dark"/>
 
-                        <!-- Inner Sliding Arm -->
-                        <geom name="inner_slider"
-                              type="box"
-                              pos="-0.07 0 0"
-                              size="0.12 0.023 0.018"
-                              rgba="0.85 0.45 0.20 1"
-                              contype="0"
-                              conaffinity="0"/>
+          <!-- light end block -->
+          <geom name="end_block"  type="box" pos="0.0475 0 0"      size="0.0225 0.048 0.043" material="alu_light"/>
+          <geom name="end_cap"    type="box" pos="0.0475 0 0.0475" size="0.016 0.022 0.005" material="steel"/>
+          <geom name="end_conn"   type="box" pos="0.0725 0 0.012"  size="0.004 0.020 0.016" class="dark"/>
 
-                        <!-- TCP -->
-                        <site name="tcp"
-                              pos="0 0 0"
-                              size="0.012"
-                              rgba="0 1 0 1"/>
+          <!-- tool: flange + nozzle pointing down -->
+          <geom name="tool_flange" type="cylinder" pos="0.0475 0 -0.047" size="0.018 0.004" material="steel"/>
+          <geom name="tool_nozzle" type="cylinder" pos="0.0475 0 -0.066" size="0.011 0.015" material="alu_light"/>
+          <geom name="tool_tip"    type="cylinder" pos="0.0475 0 -0.0825" size="0.007 0.0025" material="steel"/>
 
-                    </body>
-
-                </body>
-            </body>
+          <site name="tool_site" pos="0.0475 0 -0.085" size="0.005" rgba="0.1 0.4 1 1"/>
         </body>
+      </body>
+    </body>
+  </worldbody>
 
-    </worldbody>
+  <!-- ===================== ACTUATORS ===================== -->
+  <actuator>
+    <position name="theta1_act" joint="theta1" kp="80"  ctrlrange="0 6.2832" forcerange="-30 30"/>
+    <position name="d2_act"     joint="d2"     kp="1500" ctrlrange="0 0.40"  forcerange="-200 200"/>
+  </actuator>
 
-    <!-- Position Actuators -->
-    <actuator>
+  <!-- ===================== SENSORS ===================== -->
+  <sensor>
+    <jointpos name="theta1_pos" joint="theta1"/>
+    <jointpos name="d2_pos"     joint="d2"/>
+    <jointvel name="theta1_vel" joint="theta1"/>
+    <jointvel name="d2_vel"     joint="d2"/>
+    <framepos name="tool_xyz"   objtype="site" objname="tool_site"/>
+  </sensor>
 
-        <position name="joint1_motor"
-                  joint="joint1"
-                  kp="100"
-                  kv="10"
-                  ctrlrange="0 6.283185307"
-                  forcerange="-50 50"/>
-
-        <position name="joint2_motor"
-                  joint="joint2"
-                  kp="500"
-                  kv="50"
-                  ctrlrange="0 0.40"
-                  forcerange="-100 100"/>
-
-    </actuator>
-
+  <!-- ===================== KEYFRAMES ===================== -->
+  <keyframe>
+    <key name="home"     qpos="0 0"      ctrl="0 0"/>
+    <key name="extended" qpos="0 0.4"    ctrl="0 0.4"/>
+    <key name="quarter"  qpos="1.5708 0.2" ctrl="1.5708 0.2"/>
+  </keyframe>
 </mujoco>
