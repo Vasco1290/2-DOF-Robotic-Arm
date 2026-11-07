@@ -1,3 +1,5 @@
+import queue
+import threading
 import time
 from pathlib import Path
 
@@ -5,62 +7,119 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 
+from command_parser import parse_command
+
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 MODEL_PATH = PROJECT_DIR / "assets" / "robot_arm.xml"
 
-DEMO_MOTION = False
-RUN_SELF_TEST = True
 TARGET = (0.1, 0.3, 0.15)
-Z_TOLERANCE = 0.005
 
 
 def get_tcp_reference(model):
     data = mujoco.MjData(model)
     data.qpos[:] = 0.0
     mujoco.mj_forward(model, data)
+
     site_id = model.site("tool_site").id
-    tcp = data.site_xpos[site_id].copy()
-    return float(np.hypot(tcp[0], tcp[1])), float(tcp[2])
+    position = data.site_xpos[site_id].copy()
+
+    radius = np.hypot(position[0], position[1])
+    return float(radius), float(position[2])
 
 
-def inverse_kinematics(target, r_min, z_tcp, d2_max):
+def inverse_kinematics(target, min_radius, tcp_height, max_extension):
     x, y, z = target
-    r = float(np.hypot(x, y))
 
-    if abs(z - z_tcp) > Z_TOLERANCE:
-        return None, f"unreachable: height z={z:.3f} m, arm works at z={z_tcp:.3f} m"
+    if abs(z - tcp_height) > 0.005:
+        return None
 
-    d2 = r - r_min
-    if d2 < 0.0 or d2 > d2_max:
-        return None, (f"unreachable: radius {r:.3f} m, "
-                      f"allowed {r_min:.3f} to {r_min + d2_max:.3f} m")
+    radius = np.hypot(x, y)
+    extension = radius - min_radius
 
-    theta1 = float(np.arctan2(y, x)) % (2.0 * np.pi)
-    return (theta1, d2), "ok"
+    if not 0 <= extension <= max_extension:
+        return None
+
+    angle = np.arctan2(y, x) % (2 * np.pi)
+    return float(angle), float(extension)
 
 
-def run_self_test(model):
-    data = mujoco.MjData(model)
-    site_id = model.site("tool_site").id
+def read_commands(commands):
+    while True:
+        try:
+            text = input("Robot > ").strip()
 
-    print("\nKeyframe check")
-    for key_id in range(model.nkey):
-        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_KEY, key_id)
-        mujoco.mj_resetDataKeyframe(model, data, key_id)
-        mujoco.mj_forward(model, data)
-        tcp = data.site_xpos[site_id]
-        print(f"{name:10s} -> x={tcp[0]: .4f}  y={tcp[1]: .4f}  z={tcp[2]: .4f}")
+            if text.lower() == "exit":
+                break
+
+            if not text:
+                continue
+
+            command, message = parse_command(text)
+
+            if command is None:
+                print(message)
+                continue
+
+            commands.put(command)
+
+        except EOFError:
+            break
+
+
+def execute_command(command, data, motors, limits, workspace):
+    motor1, motor2 = motors
+    lo1, hi1, lo2, hi2 = limits
+    min_radius, tcp_height = workspace
+
+    if command["type"] == "joint":
+        angle = command["theta1"]
+        extension = command["d2"]
+
+    elif command["type"] == "cartesian":
+        solution = inverse_kinematics(
+            command["target"],
+            min_radius,
+            tcp_height,
+            hi2
+        )
+
+        if solution is None:
+            print("Target is outside the robot workspace.")
+            return
+
+        angle, extension = solution
+
+    else:
+        print("Unknown command.")
+        return
+
+    if not lo1 <= angle <= hi1:
+        print("Joint 1 target is outside its limits.")
+        return
+
+    if not lo2 <= extension <= hi2:
+        print("Joint 2 target is outside its limits.")
+        return
+
+    data.ctrl[motor1] = angle
+    data.ctrl[motor2] = extension
+
+    print(
+        f"Target accepted: "
+        f"Joint 1 = {np.rad2deg(angle):.2f} degrees, "
+        f"Joint 2 = {extension:.3f} m"
+    )
 
 
 def main():
     model = mujoco.MjModel.from_xml_path(str(MODEL_PATH))
     data = mujoco.MjData(model)
 
-    joint1_id = model.joint("theta1").id
-    joint2_id = model.joint("d2").id
+    joint1 = model.joint("theta1").id
+    joint2 = model.joint("d2").id
 
-    qpos1 = model.jnt_qposadr[joint1_id]
-    qpos2 = model.jnt_qposadr[joint2_id]
+    qpos1 = model.jnt_qposadr[joint1]
+    qpos2 = model.jnt_qposadr[joint2]
 
     motor1 = model.actuator("theta1_act").id
     motor2 = model.actuator("d2_act").id
@@ -68,30 +127,20 @@ def main():
     lo1, hi1 = model.actuator_ctrlrange[motor1]
     lo2, hi2 = model.actuator_ctrlrange[motor2]
 
-    tool_site = model.site("tool_site").id
-
-    r_min, z_tcp = get_tcp_reference(model)
-
-    print("\nRobot loaded successfully!")
-    print("Joints:", model.njnt)
-    print("Actuators:", model.nu)
-    print(f"TCP height : {z_tcp:.4f} m")
-    print(f"TCP reach  : {r_min:.4f} to {r_min + hi2:.4f} m")
-
-    if RUN_SELF_TEST:
-        run_self_test(model)
+    min_radius, tcp_height = get_tcp_reference(model)
 
     angle = np.deg2rad(45)
     extension = 0.40
 
     if TARGET is not None:
-        solution, message = inverse_kinematics(TARGET, r_min, z_tcp, hi2)
-        print(f"\nTarget {TARGET}: {message}")
+        solution = inverse_kinematics(
+            TARGET, min_radius, tcp_height, hi2
+        )
+
         if solution is not None:
             angle, extension = solution
-
-    angle = float(np.clip(angle, lo1, hi1))
-    extension = float(np.clip(extension, lo2, hi2))
+        else:
+            print("Initial target is outside the workspace.")
 
     data.qpos[qpos1] = angle
     data.qpos[qpos2] = extension
@@ -101,37 +150,59 @@ def main():
 
     mujoco.mj_forward(model, data)
 
-    print("\nInitial Configuration")
-    print("theta1 :", np.rad2deg(angle), "degrees")
-    print("d2     :", extension, "meters")
-    print("Tool   :", data.site_xpos[tool_site].copy())
+    tool_site = model.site("tool_site").id
+    actual_position = data.site_xpos[tool_site].copy()
+
+    expected_position = np.array([
+        (min_radius + extension) * np.cos(angle),
+        (min_radius + extension) * np.sin(angle),
+        tcp_height
+    ])
+
+    error = np.linalg.norm(actual_position - expected_position)
+
+    print("\nRobot loaded successfully.")
+    print(f"Joints: {model.njnt}")
+    print(f"Actuators: {model.nu}")
+    print(f"TCP position: {actual_position}")
+    print(f"FK error: {error:.8f} m")
+
+    commands = queue.Queue()
+
+    listener = threading.Thread(
+        target=read_commands,
+        args=(commands,),
+        daemon=True
+    )
+    listener.start()
 
     with mujoco.viewer.launch_passive(model, data) as viewer:
-
         viewer.cam.lookat[:] = [0.25, 0.0, 0.15]
         viewer.cam.distance = 1.5
         viewer.cam.azimuth = 135
         viewer.cam.elevation = -20
 
-        t0 = time.time()
-
         while viewer.is_running():
-            step_start = time.time()
+            start = time.time()
 
-            if DEMO_MOTION:
-                t = time.time() - t0
-                data.ctrl[motor1] = np.clip(
-                    np.pi * (1 + np.sin(0.4 * t - np.pi / 2)), lo1, hi1)
-                data.ctrl[motor2] = np.clip(
-                    0.2 * (1 + np.sin(0.8 * t - np.pi / 2)), lo2, hi2)
+            while not commands.empty():
+                command = commands.get()
+
+                execute_command(
+                    command,
+                    data,
+                    (motor1, motor2),
+                    (lo1, hi1, lo2, hi2),
+                    (min_radius, tcp_height)
+                )
 
             mujoco.mj_step(model, data)
             viewer.sync()
 
-            elapsed = time.time() - step_start
-            sleep_time = model.opt.timestep - elapsed
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+            remaining = model.opt.timestep - (time.time() - start)
+
+            if remaining > 0:
+                time.sleep(remaining)
 
 
 if __name__ == "__main__":
