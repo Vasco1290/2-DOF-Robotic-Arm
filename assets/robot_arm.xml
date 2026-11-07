@@ -12,64 +12,82 @@
               size="2 2 0.1"
               rgba="0.75 0.75 0.75 1"/>
 
-        <!-- Fixed Base -->
-        <body name="base" pos="0 0 0">
+        <!-- Lighting -->
+        <light name="main_light"
+               pos="0 -1 2"
+               dir="0 0 -1"
+               diffuse="0.8 0.8 0.8"/>
 
-            <geom name="base"
+        <!-- Fixed Base Flange -->
+        <body name="base">
+
+            <geom name="base_flange"
                   type="cylinder"
-                  size="0.15 0.075"
-                  pos="0 0 0.075"
-                  rgba="0.25 0.25 0.28 1"/>
+                  pos="0 0 0.015"
+                  size="0.15 0.015"
+                  rgba="0.65 0.67 0.70 1"
+                  contype="0"
+                  conaffinity="0"/>
 
             <!-- Vertical Column -->
-            <body name="column" pos="0 0 0.15">
+            <body name="column" pos="0 0 0.03">
 
-                <geom name="column"
+                <geom name="vertical_column"
                       type="cylinder"
-                      size="0.055 0.075"
-                      pos="0 0 0.075"
-                      rgba="0.55 0.58 0.62 1"/>
+                      pos="0 0 0.06"
+                      size="0.055 0.06"
+                      rgba="0.65 0.67 0.70 1"
+                      contype="0"
+                      conaffinity="0"/>
 
-                <!-- Revolute Joint -->
-                <body name="rotating_arm" pos="0 0 0.15">
+                <!-- Revolute Assembly -->
+                <body name="rotating_arm" pos="0 0 0.12">
 
                     <joint name="joint1"
                            type="hinge"
                            axis="0 0 1"
-                           range="0 6.283185"
-                           limited="true"/>
+                           range="0 6.283185307"
+                           limited="true"
+                           damping="2.0"/>
 
                     <!-- Rotating Shoulder -->
                     <geom name="shoulder"
                           type="cylinder"
-                          size="0.075 0.045"
                           pos="0 0 0"
-                          rgba="0.2 0.35 0.65 1"/>
+                          size="0.075 0.045"
+                          rgba="0.25 0.35 0.55 1"
+                          contype="0"
+                          conaffinity="0"/>
 
-                    <!-- Outer Arm Housing -->
-                    <geom name="outer_arm"
+                    <!-- Fixed Outer Arm Housing -->
+                    <geom name="outer_housing"
                           type="box"
-                          pos="0.20 0 0"
-                          size="0.22 0.045 0.035"
-                          rgba="0.25 0.40 0.70 1"/>
+                          pos="0.15 0 0"
+                          size="0.15 0.04 0.035"
+                          rgba="0.70 0.72 0.75 1"
+                          contype="0"
+                          conaffinity="0"/>
 
-                    <!-- Prismatic Joint -->
-                    <body name="sliding_arm" pos="0 0 0">
+                    <!-- Prismatic Assembly -->
+                    <body name="sliding_arm">
 
                         <joint name="joint2"
                                type="slide"
                                axis="1 0 0"
                                range="0 0.40"
-                               limited="true"/>
+                               limited="true"
+                               damping="10.0"/>
 
                         <!-- Inner Sliding Arm -->
-                        <geom name="inner_arm"
+                        <geom name="inner_slider"
                               type="box"
-                              pos="0 0 0"
-                              size="0.055 0.025 0.018"
-                              rgba="0.95 0.45 0.15 1"/>
+                              pos="-0.07 0 0"
+                              size="0.12 0.023 0.018"
+                              rgba="0.85 0.45 0.20 1"
+                              contype="0"
+                              conaffinity="0"/>
 
-                        <!-- TCP Marker -->
+                        <!-- TCP -->
                         <site name="tcp"
                               pos="0 0 0"
                               size="0.012"
@@ -88,11 +106,17 @@
 
         <position name="joint1_motor"
                   joint="joint1"
-                  kp="100"/>
+                  kp="100"
+                  kv="10"
+                  ctrlrange="0 6.283185307"
+                  forcerange="-50 50"/>
 
         <position name="joint2_motor"
                   joint="joint2"
-                  kp="500"/>
+                  kp="500"
+                  kv="50"
+                  ctrlrange="0 0.40"
+                  forcerange="-100 100"/>
 
     </actuator>
 
