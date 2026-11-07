@@ -1,10 +1,8 @@
-<mujoco model="2_DOF_RP_Robot">
+<mujoco model="2DOF_RP_Robot">
 
     <compiler angle="radian" autolimits="true"/>
 
     <option timestep="0.002" gravity="0 0 -9.81"/>
-
-    <visual>
 
     <worldbody>
 
@@ -12,50 +10,72 @@
         <geom name="ground"
               type="plane"
               size="2 2 0.1"
-              rgba="0.8 0.8 1"/>
+              rgba="0.75 0.75 0.75 1"/>
 
         <!-- Fixed Base -->
         <body name="base" pos="0 0 0">
 
-            <geom name="base_cylinder"
+            <geom name="base"
                   type="cylinder"
-                  size="0.15 0.75"
-                  rgba="0.3 0.3 0.35 1"/>
+                  size="0.15 0.075"
+                  pos="0 0 0.075"
+                  rgba="0.25 0.25 0.28 1"/>
 
-            <!-- Rotating Assembly -->
-            <body name="rotating_arm" pos="0 0 0.15">
+            <!-- Vertical Column -->
+            <body name="column" pos="0 0 0.15">
 
-                <joint name="joint1"
-                       type="hinge"
-                       axis="0 0 1"
-                       range="0 6.283185"/>
-
-                <!-- Arm Housing -->
-                <geom name="arm_housing"
+                <geom name="column"
                       type="cylinder"
-                      pos="0 0 0"
-                      rgba="o.2 0.4 0.8 1"/>
+                      size="0.055 0.075"
+                      pos="0 0 0.075"
+                      rgba="0.55 0.58 0.62 1"/>
 
-                <!-- Sliding Assembly-->
-                <body name="sliding_arm" pos="0 0 0">
+                <!-- Revolute Joint -->
+                <body name="rotating_arm" pos="0 0 0.15">
 
-                    <joint name="joint2"
-                           type="slide"
-                           axis="1 0 0"
-                           range="0 0.40"/>
+                    <joint name="joint1"
+                           type="hinge"
+                           axis="0 0 1"
+                           range="0 6.283185"
+                           limited="true"/>
 
-                    <!-- Prismatic Arm -->
-                    <geom name="prismatic_link"
-                          type="capsule"
-                          fromto="0 0 0 0.40 0 0"
-                          size="0.025"
-                          rgba="0.9 0.4 0.2 1"/>
-
-                    <!-- TCP -->
-                    <site name="tcp"
+                    <!-- Rotating Shoulder -->
+                    <geom name="shoulder"
+                          type="cylinder"
+                          size="0.075 0.045"
                           pos="0 0 0"
-                          size="0.012"
-                          rgba="0 1 0 1"/>
+                          rgba="0.2 0.35 0.65 1"/>
+
+                    <!-- Outer Arm Housing -->
+                    <geom name="outer_arm"
+                          type="box"
+                          pos="0.20 0 0"
+                          size="0.22 0.045 0.035"
+                          rgba="0.25 0.40 0.70 1"/>
+
+                    <!-- Prismatic Joint -->
+                    <body name="sliding_arm" pos="0 0 0">
+
+                        <joint name="joint2"
+                               type="slide"
+                               axis="1 0 0"
+                               range="0 0.40"
+                               limited="true"/>
+
+                        <!-- Inner Sliding Arm -->
+                        <geom name="inner_arm"
+                              type="box"
+                              pos="0 0 0"
+                              size="0.055 0.025 0.018"
+                              rgba="0.95 0.45 0.15 1"/>
+
+                        <!-- TCP Marker -->
+                        <site name="tcp"
+                              pos="0 0 0"
+                              size="0.012"
+                              rgba="0 1 0 1"/>
+
+                    </body>
 
                 </body>
             </body>
@@ -63,7 +83,7 @@
 
     </worldbody>
 
-    <!-- Actuators -->
+    <!-- Position Actuators -->
     <actuator>
 
         <position name="joint1_motor"
