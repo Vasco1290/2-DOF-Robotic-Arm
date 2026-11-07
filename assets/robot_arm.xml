@@ -1,0 +1,79 @@
+<mujoco model="2_DOF_RP_Robot">
+
+    <compiler angle="radian" autolimits="true"/>
+
+    <option timestep="0.002" gravity="0 0 -9.81"/>
+
+    <visual>
+
+    <worldbody>
+
+        <!-- Ground -->
+        <geom name="ground"
+              type="plane"
+              size="2 2 0.1"
+              rgba="0.8 0.8 1"/>
+
+        <!-- Fixed Base -->
+        <body name="base" pos="0 0 0">
+
+            <geom name="base_cylinder"
+                  type="cylinder"
+                  size="0.15 0.75"
+                  rgba="0.3 0.3 0.35 1"/>
+
+            <!-- Rotating Assembly -->
+            <body name="rotating_arm" pos="0 0 0.15">
+
+                <joint name="joint1"
+                       type="hinge"
+                       axis="0 0 1"
+                       range="0 6.283185"/>
+
+                <!-- Arm Housing -->
+                <geom name="arm_housing"
+                      type="cylinder"
+                      pos="0 0 0"
+                      rgba="o.2 0.4 0.8 1"/>
+
+                <!-- Sliding Assembly-->
+                <body name="sliding_arm" pos="0 0 0">
+
+                    <joint name="joint2"
+                           type="slide"
+                           axis="1 0 0"
+                           range="0 0.40"/>
+
+                    <!-- Prismatic Arm -->
+                    <geom name="prismatic_link"
+                          type="capsule"
+                          fromto="0 0 0 0.40 0 0"
+                          size="0.025"
+                          rgba="0.9 0.4 0.2 1"/>
+
+                    <!-- TCP -->
+                    <site name="tcp"
+                          pos="0 0 0"
+                          size="0.012"
+                          rgba="0 1 0 1"/>
+
+                </body>
+            </body>
+        </body>
+
+    </worldbody>
+
+    <!-- Actuators -->
+    <actuator>
+
+        <position name="joint1_motor"
+                  joint="joint1"
+                  kp="100"/>
+
+        <position name="joint2_motor"
+                  joint="joint2"
+                  kp="500"/>
+
+    </actuator>
+
+</mujoco>
