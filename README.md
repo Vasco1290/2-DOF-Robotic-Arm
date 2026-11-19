@@ -1,6 +1,6 @@
 # 2-DOF Robotic Arm
 
-\<p align="center">   \<img src="images/robot-arm.png" alt="2-DOF Robotic Arm Simulation" width="850"> \</p>
+![2-DOF Robotic Arm Simulation](images/robot-arm.png)
 
 A 2-DOF robotic arm built and simulated using MuJoCo and Python. The robot combines a revolute joint and a prismatic joint to produce rotational and linear movement.
 
